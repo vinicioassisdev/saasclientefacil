@@ -13,16 +13,23 @@ export enum PaymentStatus {
   VENCIDO = 'Vencido'
 }
 
+export type UserRole = 'user' | 'admin';
+export type UserPlan = 'free' | 'pro';
+export type UserStatus = 'ativo' | 'bloqueado';
+
 export interface User {
   id: string;
   name: string;
   email: string;
-  plan: 'free' | 'pro';
+  role: UserRole;
+  plan: UserPlan;
+  status: UserStatus;
+  createdAt: string;
 }
 
 export interface Client {
   id: string;
-  userId: string; // Vínculo de segurança
+  userId: string;
   name: string;
   phone: string;
   email: string;
@@ -30,8 +37,8 @@ export interface Client {
   budget: number;
   status: ClientStatus;
   paymentStatus: PaymentStatus;
-  nextFollowUp: string; // ISO date string
-  lastInteraction: string; // ISO date string
+  nextFollowUp: string;
+  lastInteraction: string;
   createdAt: string;
 }
 
@@ -45,4 +52,4 @@ export interface DashboardStats {
   overduePayments: number;
 }
 
-export type AppView = 'dashboard' | 'clients' | 'followups' | 'reports' | 'subscription';
+export type AppView = 'dashboard' | 'clients' | 'followups' | 'reports' | 'subscription' | 'upgrade' | 'admin';

@@ -5,129 +5,209 @@ import Dashboard from './components/Dashboard';
 import ClientManager from './components/ClientManager';
 import FollowUpManager from './components/FollowUpManager';
 import Reports from './components/Reports';
-import Subscription from './components/Subscription';
 import Login from './components/Login';
+import Upgrade from './components/Upgrade';
+import AdminPanel from './components/AdminPanel';
 import { AppView, Client, ClientStatus, DashboardStats, PaymentStatus, User } from './types';
-import { INITIAL_CLIENTS } from './constants';
+
+/**
+ * 🛡️ SEGURANÇA VIA VARIÁVEIS DE AMBIENTE (PADRÃO VERCEL/SAAS)
+ * 
+ * As credenciais agora são puxadas do ambiente de hospedagem.
+ * No Vercel, você deve configurar:
+ * ADMIN_EMAIL = seu-email@exemplo.com
+ * ADMIN_PASS = sua-senha-forte
+ */
+const ADMIN_CREDENTIALS = {
+  email: process.env.ADMIN_EMAIL || 'admin@clientesimples.com',
+  pass: process.env.ADMIN_PASS || 'sua-senha-segura-123'
+};
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('dashboard');
-  const [user, setUser] = useState<User | null>(null);
-  const [clients, setClients] = useState<Client[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allClients, setAllClients] = useState<Client[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Recuperar sessão e dados do usuário logado
   useEffect(() => {
-    const savedUser = localStorage.getItem('cs_user');
-    if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      setUser(parsedUser);
-      
-      // Carregar apenas os clientes deste usuário
-      const savedClients = localStorage.getItem(`cs_clients_${parsedUser.id}`);
-      if (savedClients) {
-        setClients(JSON.parse(savedClients));
+    const savedGlobalUsers = localStorage.getItem('cs_global_users');
+    const savedGlobalClients = localStorage.getItem('cs_global_clients');
+    
+    const initialUsers: User[] = savedGlobalUsers ? JSON.parse(savedGlobalUsers) : [];
+    const adminEmail = ADMIN_CREDENTIALS.email;
+    
+    // Injeção dinâmica do Admin Master
+    const hasAdmin = initialUsers.some(u => u.role === 'admin' && u.email === adminEmail);
+    if (!hasAdmin) {
+      initialUsers.push({
+        id: 'owner-root', 
+        name: 'Proprietário ClienteSimples', 
+        email: adminEmail, 
+        role: 'admin', 
+        plan: 'pro', 
+        status: 'ativo', 
+        createdAt: new Date().toISOString()
+      });
+    }
+    
+    const initialClients: Client[] = savedGlobalClients ? JSON.parse(savedGlobalClients) : [];
+
+    setAllUsers(initialUsers);
+    setAllClients(initialClients);
+
+    const sessionUser = localStorage.getItem('cs_session_user');
+    if (sessionUser) {
+      const user = JSON.parse(sessionUser);
+      // Validação de segurança: se o e-mail administrativo mudar no Vercel, desloga sessões antigas
+      if (user.role === 'admin' && user.email !== adminEmail) {
+        localStorage.removeItem('cs_session_user');
+        setCurrentUser(null);
       } else {
-        // Se for novo usuário, damos os exemplos vinculados ao seu ID
-        const demoClients = INITIAL_CLIENTS.map(c => ({ ...c, userId: parsedUser.id }));
-        setClients(demoClients);
+        setCurrentUser(user);
       }
     }
+    
     setIsInitialized(true);
   }, []);
 
-  // Sincronizar clientes com o storage específico do usuário
   useEffect(() => {
-    if (user && isInitialized) {
-      localStorage.setItem(`cs_clients_${user.id}`, JSON.stringify(clients));
+    if (isInitialized) {
+      localStorage.setItem('cs_global_users', JSON.stringify(allUsers));
+      localStorage.setItem('cs_global_clients', JSON.stringify(allClients));
     }
-  }, [clients, user, isInitialized]);
+  }, [allUsers, allClients, isInitialized]);
 
-  const handleLogin = (userData: User) => {
-    setUser(userData);
-    localStorage.setItem('cs_user', JSON.stringify(userData));
-    // Redireciona para o dashboard
+  const handleLogin = (email: string, pass: string, name?: string) => {
+    // 1. Verificação contra Variáveis de Ambiente
+    if (email.toLowerCase() === ADMIN_CREDENTIALS.email.toLowerCase()) {
+      if (pass !== ADMIN_CREDENTIALS.pass) {
+        throw new Error('Credenciais de Administrador inválidas.');
+      }
+      
+      const adminUser = allUsers.find(u => u.email === email) || {
+        id: 'owner-root',
+        name: 'Proprietário ClienteSimples',
+        email: email,
+        role: 'admin',
+        plan: 'pro',
+        status: 'ativo',
+        createdAt: new Date().toISOString()
+      };
+
+      setCurrentUser(adminUser as User);
+      localStorage.setItem('cs_session_user', JSON.stringify(adminUser));
+      setCurrentView('admin');
+      return;
+    }
+
+    // 2. Fluxo Normal de Usuários
+    let user = allUsers.find(u => u.email === email);
+    
+    if (!user) {
+      user = {
+        id: btoa(email), // ID ofuscado
+        name: name || 'Novo Usuário',
+        email: email,
+        role: 'user', 
+        plan: 'free',
+        status: 'ativo',
+        createdAt: new Date().toISOString()
+      };
+      setAllUsers(prev => [...prev, user as User]);
+    }
+
+    if (user.status === 'bloqueado') {
+      throw new Error('Acesso suspenso. Procure o administrador.');
+    }
+
+    setCurrentUser(user);
+    localStorage.setItem('cs_session_user', JSON.stringify(user));
     setCurrentView('dashboard');
   };
 
   const handleLogout = () => {
-    setUser(null);
-    setClients([]);
-    localStorage.removeItem('cs_user');
+    setCurrentUser(null);
+    localStorage.removeItem('cs_session_user');
     setCurrentView('dashboard');
   };
 
-  const stats = useMemo((): DashboardStats => {
-    if (!user) return { activeClients: 0, proposalsSent: 0, closedDeals: 0, monthlyRevenue: 0, conversionRate: 0, pendingFollowUps: 0, overduePayments: 0 };
+  const handleUpdateUser = (userId: string, data: Partial<User>) => {
+    if (userId === 'owner-root' && (data.role === 'user' || data.status === 'bloqueado')) {
+      alert('O sistema impede que o proprietário raiz seja rebaixado ou bloqueado.');
+      return;
+    }
+
+    setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, ...data } : u));
     
-    const now = new Date();
+    if (currentUser?.id === userId) {
+      const updated = { ...currentUser, ...data };
+      setCurrentUser(updated);
+      localStorage.setItem('cs_session_user', JSON.stringify(updated));
+    }
+  };
+
+  const userClients = useMemo(() => 
+    allClients.filter(c => c.userId === currentUser?.id), 
+  [allClients, currentUser]);
+
+  const stats = useMemo((): DashboardStats => {
+    const clients = userClients;
     return {
       activeClients: clients.filter(c => c.status !== ClientStatus.PERDIDO).length,
       proposalsSent: clients.filter(c => c.status === ClientStatus.PROPOSTA_ENVIADA).length,
       closedDeals: clients.filter(c => c.status === ClientStatus.FECHADO).length,
-      monthlyRevenue: clients
-        .filter(c => c.status === ClientStatus.FECHADO)
-        .reduce((sum, c) => sum + c.budget, 0),
-      conversionRate: clients.length > 0 
-        ? (clients.filter(c => c.status === ClientStatus.FECHADO).length / clients.length) * 100 
-        : 0,
-      pendingFollowUps: clients.filter(c => new Date(c.nextFollowUp) < now && c.status !== ClientStatus.FECHADO && c.status !== ClientStatus.PERDIDO).length,
+      monthlyRevenue: clients.filter(c => c.status === ClientStatus.FECHADO).reduce((sum, c) => sum + c.budget, 0),
+      conversionRate: clients.length > 0 ? (clients.filter(c => c.status === ClientStatus.FECHADO).length / clients.length) * 100 : 0,
+      pendingFollowUps: clients.filter(c => new Date(c.nextFollowUp) < new Date() && c.status !== ClientStatus.FECHADO).length,
       overduePayments: clients.filter(c => c.paymentStatus === PaymentStatus.VENCIDO).length,
     };
-  }, [clients, user]);
+  }, [userClients]);
 
-  const handleAddClient = (clientData: Omit<Client, 'id' | 'createdAt' | 'userId'>) => {
-    if (!user) return;
+  const handleAddClient = (clientData: any) => {
+    if (!currentUser) return;
+    if (currentUser.plan === 'free' && userClients.length >= 10) {
+      alert('Limite do plano atingido.');
+      return;
+    }
     const newClient: Client = {
       ...clientData,
-      userId: user.id,
+      userId: currentUser.id,
       id: Math.random().toString(36).substr(2, 9),
       createdAt: new Date().toISOString()
     };
-    setClients([...clients, newClient]);
-  };
-
-  const handleUpdateClient = (updatedClient: Client) => {
-    if (updatedClient.userId !== user?.id) return; // Segurança extra
-    setClients(clients.map(c => c.id === updatedClient.id ? updatedClient : c));
-  };
-
-  const handleDeleteClient = (id: string) => {
-    setClients(clients.filter(c => c.id !== id));
+    setAllClients(prev => [...prev, newClient]);
   };
 
   if (!isInitialized) return null;
-
-  if (!user) {
-    return <Login onLogin={handleLogin} />;
-  }
+  if (!currentUser) return <Login onLogin={handleLogin} adminEmail={ADMIN_CREDENTIALS.email} />;
 
   const renderView = () => {
     switch (currentView) {
-      case 'dashboard':
-        return <Dashboard stats={stats} clients={clients} />;
-      case 'clients':
-        return (
-          <ClientManager 
-            clients={clients} 
-            onAddClient={handleAddClient} 
-            onUpdateClient={handleUpdateClient} 
-            onDeleteClient={handleDeleteClient}
-          />
-        );
-      case 'followups':
-        return <FollowUpManager clients={clients} onUpdateClient={handleUpdateClient} />;
-      case 'reports':
-        return <Reports clients={clients} />;
-      case 'subscription':
-        return <Subscription />;
-      default:
-        return <Dashboard stats={stats} clients={clients} />;
+      case 'dashboard': return <Dashboard stats={stats} clients={userClients} />;
+      case 'clients': return (
+        <ClientManager 
+          clients={userClients} 
+          userPlan={currentUser.plan}
+          onAddClient={handleAddClient} 
+          onUpdateClient={(updated) => setAllClients(prev => prev.map(c => c.id === updated.id ? updated : c))}
+          onDeleteClient={(id) => setAllClients(prev => prev.filter(c => c.id !== id))}
+          onNavigateToUpgrade={() => setCurrentView('upgrade')}
+        />
+      );
+      case 'upgrade': return <Upgrade />;
+      case 'admin': 
+        return currentUser.role === 'admin' ? (
+          <AdminPanel allUsers={allUsers} allClients={allClients} onUpdateUser={handleUpdateUser} />
+        ) : <Dashboard stats={stats} clients={userClients} />;
+      case 'followups': return <FollowUpManager clients={userClients} onUpdateClient={(u) => setAllClients(prev => prev.map(c => c.id === u.id ? u : c))} />;
+      case 'reports': return <Reports clients={userClients} />;
+      default: return <Dashboard stats={stats} clients={userClients} />;
     }
   };
 
   return (
-    <Layout currentView={currentView} onViewChange={setCurrentView} user={user} onLogout={handleLogout}>
+    <Layout currentView={currentView} onViewChange={setCurrentView} user={currentUser} onLogout={handleLogout}>
       {renderView()}
     </Layout>
   );

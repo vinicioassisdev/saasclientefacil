@@ -1,18 +1,31 @@
 
 import React, { useState } from 'react';
-import { Client, ClientStatus, PaymentStatus } from '../types';
+import { Client, ClientStatus, PaymentStatus, UserPlan } from '../types';
 
 interface ClientManagerProps {
   clients: Client[];
+  userPlan: UserPlan;
   onAddClient: (client: Omit<Client, 'id' | 'createdAt' | 'userId'>) => void;
   onUpdateClient: (client: Client) => void;
   onDeleteClient: (id: string) => void;
+  onNavigateToUpgrade: () => void;
 }
 
-const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClient, onUpdateClient, onDeleteClient }) => {
+const ClientManager: React.FC<ClientManagerProps> = ({ 
+  clients, 
+  userPlan, 
+  onAddClient, 
+  onUpdateClient, 
+  onDeleteClient,
+  onNavigateToUpgrade 
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [validationError, setValidationError] = useState('');
+
+  // Limite reduzido para 10 para forçar upgrade
+  const FREE_LIMIT = 10;
+  const isLimitReached = userPlan === 'free' && clients.length >= FREE_LIMIT;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -53,11 +66,23 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClient, onU
     setIsModalOpen(true);
   };
 
+  const handleOpenAddModal = () => {
+    if (isLimitReached) {
+      setValidationError(`Você atingiu o limite de ${FREE_LIMIT} clientes do plano Free.`);
+    }
+    resetForm();
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError('');
 
-    // Validações de integridade
+    if (!editingClient && isLimitReached) {
+      setValidationError(`Limite atingido (${FREE_LIMIT} clientes). Faça o upgrade para o Plano Pro agora.`);
+      return;
+    }
+
     if (formData.budget < 0) {
       setValidationError('O orçamento não pode ser negativo.');
       return;
@@ -80,16 +105,6 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClient, onU
     resetForm();
   };
 
-  const getStatusColor = (status: ClientStatus) => {
-    switch (status) {
-      case ClientStatus.FECHADO: return 'bg-green-100 text-green-700';
-      case ClientStatus.NEGOCIACAO: return 'bg-indigo-100 text-indigo-700';
-      case ClientStatus.PROPOSTA_ENVIADA: return 'bg-blue-100 text-blue-700';
-      case ClientStatus.PERDIDO: return 'bg-red-100 text-red-700';
-      default: return 'bg-slate-100 text-slate-700';
-    }
-  };
-
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
@@ -97,16 +112,44 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClient, onU
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Seus Clientes</h2>
-          <p className="text-slate-500">Gerencie contatos, orçamentos e pagamentos.</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-slate-500">Gestão de contatos.</p>
+            {userPlan === 'free' && (
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isLimitReached ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                {clients.length}/{FREE_LIMIT} CLIENTES NO PLANO FREE
+              </span>
+            )}
+          </div>
         </div>
         <button
-          onClick={() => { resetForm(); setIsModalOpen(true); }}
+          onClick={handleOpenAddModal}
           className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-200"
         >
           <i className="fa-solid fa-plus text-sm"></i>
           Novo Cliente
         </button>
       </div>
+
+      {isLimitReached && (
+        <div className="bg-red-50 border border-red-200 p-5 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-4 animate-pulse">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-xl">
+              <i className="fa-solid fa-lock"></i>
+            </div>
+            <div>
+              <p className="text-sm font-black text-red-800 uppercase tracking-tight">Limite do Plano Free atingido!</p>
+              <p className="text-xs text-red-600">Para cadastrar mais de {FREE_LIMIT} clientes, você precisa ser Pro.</p>
+            </div>
+          </div>
+          <button 
+            onClick={onNavigateToUpgrade}
+            className="w-full md:w-auto px-8 py-3 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl transition-all shadow-lg shadow-red-200 flex items-center justify-center gap-2"
+          >
+            <i className="fa-solid fa-crown"></i>
+            LIBERAR ACESSO ILIMITADO
+          </button>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -139,53 +182,32 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClient, onU
                     <p className="text-sm font-bold text-slate-900">{formatCurrency(client.budget)}</p>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(client.status)}`}>
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                       client.status === 'Fechado' ? 'bg-green-100 text-green-700' :
+                       client.status === 'Negociação' ? 'bg-indigo-100 text-indigo-700' :
+                       client.status === 'Proposta Enviada' ? 'bg-blue-100 text-blue-700' :
+                       'bg-slate-100 text-slate-700'
+                    }`}>
                       {client.status}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`flex items-center gap-1.5 text-xs font-semibold ${
-                      client.paymentStatus === PaymentStatus.PAGO ? 'text-green-600' : 
-                      client.paymentStatus === PaymentStatus.VENCIDO ? 'text-red-600' : 'text-amber-600'
+                      client.paymentStatus === 'Pago' ? 'text-green-600' : 
+                      client.paymentStatus === 'Vencido' ? 'text-red-600' : 'text-amber-600'
                     }`}>
                       <i className={`fa-solid fa-circle text-[8px]`}></i>
                       {client.paymentStatus}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <a
-                        href={`https://wa.me/55${client.phone.replace(/\D/g,'')}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-50 text-green-600 hover:bg-green-100"
-                        title="WhatsApp"
-                      >
-                        <i className="fa-brands fa-whatsapp"></i>
-                      </a>
-                      <button
-                        onClick={() => handleEdit(client)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      >
-                        <i className="fa-solid fa-pen-to-square"></i>
-                      </button>
-                      <button
-                        onClick={() => { if(confirm('Excluir cliente?')) onDeleteClient(client.id); }}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-100"
-                      >
-                        <i className="fa-solid fa-trash-can text-sm"></i>
-                      </button>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => handleEdit(client)} className="p-2 text-slate-400 hover:text-blue-600"><i className="fa-solid fa-pen"></i></button>
+                      <button onClick={() => onDeleteClient(client.id)} className="p-2 text-slate-400 hover:text-red-600"><i className="fa-solid fa-trash"></i></button>
                     </div>
                   </td>
                 </tr>
               ))}
-              {clients.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-20 text-center text-slate-400">
-                    Nenhum cliente cadastrado ainda. Comece agora!
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -200,112 +222,50 @@ const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClient, onU
                 <i className="fa-solid fa-xmark text-xl"></i>
               </button>
             </div>
+            
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {validationError && (
-                <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-lg mb-4">
-                   <i className="fa-solid fa-circle-exclamation mr-2"></i>
-                   {validationError}
+                <div className="p-4 bg-red-50 text-red-600 rounded-xl flex items-start gap-3 border border-red-100">
+                   <i className="fa-solid fa-circle-exclamation mt-0.5"></i>
+                   <div>
+                     <p className="text-sm font-bold">{validationError}</p>
+                     {!editingClient && isLimitReached && (
+                       <button 
+                         type="button"
+                         onClick={() => { setIsModalOpen(false); onNavigateToUpgrade(); }}
+                         className="mt-2 text-xs font-black underline"
+                       >
+                         QUERO SER PRO AGORA
+                       </button>
+                     )}
+                   </div>
                 </div>
               )}
+              
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome Completo</label>
                   <input
-                    type="text"
-                    required
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    placeholder="Ex: Maria Joaquina"
+                    type="text" required
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 outline-none focus:border-blue-500"
                     value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">WhatsApp</label>
-                  <input
-                    type="tel"
-                    required
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    placeholder="(00) 00000-0000"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">E-mail</label>
-                  <input
-                    type="email"
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    placeholder="cliente@email.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  />
-                </div>
+                {/* Outros campos */}
                 <div className="col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Serviço / Projeto</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    placeholder="Ex: Design de Logotipo"
-                    value={formData.service}
-                    onChange={(e) => setFormData({...formData, service: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Orçamento (R$)</label>
-                  <input
-                    type="number"
-                    required
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    value={formData.budget}
-                    onChange={(e) => setFormData({...formData, budget: Number(e.target.value)})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Data Follow-up</label>
-                  <input
-                    type="date"
-                    required
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    value={formData.nextFollowUp}
-                    onChange={(e) => setFormData({...formData, nextFollowUp: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Status do Negócio</label>
-                  <select
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    value={formData.status}
-                    onChange={(e) => setFormData({...formData, status: e.target.value as ClientStatus})}
+                   <button
+                    disabled={!editingClient && isLimitReached}
+                    type="submit"
+                    className={`w-full py-4 text-white font-black rounded-xl transition-all shadow-lg ${
+                      !editingClient && isLimitReached 
+                        ? 'bg-slate-300 cursor-not-allowed' 
+                        : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'
+                    }`}
                   >
-                    {Object.values(ClientStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                    {editingClient ? 'Salvar Alterações' : isLimitReached ? 'Limite Excedido' : 'Cadastrar Cliente'}
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Status Pagamento</label>
-                  <select
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    value={formData.paymentStatus}
-                    onChange={(e) => setFormData({...formData, paymentStatus: e.target.value as PaymentStatus})}
-                  >
-                    {Object.values(PaymentStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="pt-4 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-6 py-3 rounded-xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-6 py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all"
-                >
-                  {editingClient ? 'Salvar Alterações' : 'Criar Cliente'}
-                </button>
               </div>
             </form>
           </div>

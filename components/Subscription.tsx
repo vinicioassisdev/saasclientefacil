@@ -17,28 +17,23 @@ const Subscription: React.FC = () => {
             <p className="text-slate-500 text-sm">Para quem está começando agora.</p>
           </div>
           <div className="mb-8">
-            <span className="text-4xl font-black text-slate-900">R$ 29,90</span>
-            <span className="text-slate-400">/mês</span>
+            <span className="text-4xl font-black text-slate-900">Grátis</span>
           </div>
           <ul className="space-y-4 mb-12 flex-1">
-            <li className="flex items-center gap-3 text-sm text-slate-600">
+            <li className="flex items-center gap-3 text-sm text-slate-600 font-bold">
               <i className="fa-solid fa-check text-green-500"></i>
-              Até 100 clientes ativos
+              Até 10 clientes ativos
             </li>
             <li className="flex items-center gap-3 text-sm text-slate-600">
               <i className="fa-solid fa-check text-green-500"></i>
-              Follow-up inteligente (Gemini AI)
+              Follow-up inteligente (IA)
             </li>
             <li className="flex items-center gap-3 text-sm text-slate-600">
               <i className="fa-solid fa-check text-green-500"></i>
               Relatórios financeiros básicos
             </li>
-            <li className="flex items-center gap-3 text-sm text-slate-400 italic">
-              <i className="fa-solid fa-xmark"></i>
-              Automações avançadas
-            </li>
           </ul>
-          <button className="w-full py-4 rounded-2xl font-bold border-2 border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">
+          <button className="w-full py-4 rounded-2xl font-bold border-2 border-slate-200 text-slate-600 bg-slate-50 cursor-default">
             Plano Atual
           </button>
         </div>
@@ -53,13 +48,13 @@ const Subscription: React.FC = () => {
             <p className="text-slate-500 text-sm">Ideal para profissionais em escala.</p>
           </div>
           <div className="mb-8">
-            <span className="text-4xl font-black text-slate-900">R$ 59,90</span>
+            <span className="text-4xl font-black text-slate-900">R$ 39,90</span>
             <span className="text-slate-400">/mês</span>
           </div>
           <ul className="space-y-4 mb-12 flex-1">
-            <li className="flex items-center gap-3 text-sm text-slate-600 font-semibold">
-              <i className="fa-solid fa-check text-green-500"></i>
-              Clientes ilimitados
+            <li className="flex items-center gap-3 text-sm text-slate-600 font-bold">
+              <i className="fa-solid fa-crown text-amber-500"></i>
+              Clientes ILIMITADOS
             </li>
             <li className="flex items-center gap-3 text-sm text-slate-600">
               <i className="fa-solid fa-check text-green-500"></i>
@@ -71,23 +66,13 @@ const Subscription: React.FC = () => {
             </li>
             <li className="flex items-center gap-3 text-sm text-slate-600">
               <i className="fa-solid fa-check text-green-500"></i>
-              Integração direta com Pix
-            </li>
-            <li className="flex items-center gap-3 text-sm text-slate-600">
-              <i className="fa-solid fa-check text-green-500"></i>
               Suporte VIP prioritário
             </li>
           </ul>
-          <button className="w-full py-4 rounded-2xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all">
+          <button className="w-full py-4 rounded-2xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all transform hover:scale-[1.02]">
             Upgrade para Pro
           </button>
         </div>
-      </div>
-
-      <div className="bg-slate-100 p-8 rounded-3xl border border-slate-200 text-center">
-        <h4 className="font-bold text-slate-800 mb-2">Precisa de algo sob medida?</h4>
-        <p className="text-slate-500 text-sm mb-6">Temos planos para agências e equipes grandes. Fale conosco.</p>
-        <button className="text-blue-600 font-bold hover:underline">Conversar com suporte no WhatsApp</button>
       </div>
     </div>
   );
