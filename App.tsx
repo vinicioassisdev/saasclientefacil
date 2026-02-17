@@ -10,7 +10,7 @@ import Upgrade from './components/Upgrade';
 import AdminPanel from './components/AdminPanel';
 import { AppView, Client, ClientStatus, DashboardStats, PaymentStatus, User } from './types';
 
-const API_URL = "/api/sync"; 
+const API_URL = "/api/sync";
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('dashboard');
@@ -25,7 +25,11 @@ const App: React.FC = () => {
   const syncData = useCallback(async () => {
     try {
       setIsSyncing(true);
-      const response = await fetch(API_URL);
+      const response = await fetch(API_URL, {
+        headers: {
+          'x-sync-secret': process.env.SYNC_SECRET || ''
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         if (data.users) setAllUsers(data.users);
@@ -49,7 +53,10 @@ const App: React.FC = () => {
       setIsSyncing(true);
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-sync-secret': process.env.SYNC_SECRET || ''
+        },
         body: JSON.stringify({ users, clients })
       });
       if (!response.ok) {
@@ -74,7 +81,7 @@ const App: React.FC = () => {
     }
     syncData().then(() => setIsInitialized(true));
 
-    const interval = setInterval(syncData, 30000); 
+    const interval = setInterval(syncData, 30000);
     return () => clearInterval(interval);
   }, [syncData]);
 
@@ -83,8 +90,8 @@ const App: React.FC = () => {
     const adminEmail = "admin@clientesimples.com";
 
     if (loginEmail === adminEmail && pass === "sua-senha-segura-123") {
-      const admin: User = allUsers.find(u => u.email === adminEmail) || { 
-        id: 'admin-001', name: 'Diretor ClienteSimples', email: adminEmail, role: 'admin', plan: 'pro', status: 'ativo', createdAt: new Date().toISOString() 
+      const admin: User = allUsers.find(u => u.email === adminEmail) || {
+        id: 'admin-001', name: 'Diretor ClienteSimples', email: adminEmail, role: 'admin', plan: 'pro', status: 'ativo', createdAt: new Date().toISOString()
       };
       setCurrentUser(admin);
       localStorage.setItem('cs_session_user', JSON.stringify(admin));
@@ -96,7 +103,7 @@ const App: React.FC = () => {
 
     if (isRegistering) {
       if (foundUser) throw new Error('E-mail já cadastrado.');
-      
+
       const newUser: User = {
         id: `u_${Math.random().toString(36).substr(2, 9)}`,
         name: name || 'Usuário',
@@ -106,7 +113,7 @@ const App: React.FC = () => {
         status: 'ativo',
         createdAt: new Date().toISOString()
       };
-      
+
       const newUsersList = [...allUsers, newUser];
       setAllUsers(newUsersList);
       setCurrentUser(newUser);
@@ -167,11 +174,10 @@ const App: React.FC = () => {
   return (
     <Layout currentView={currentView} onViewChange={setCurrentView} user={currentUser} onLogout={handleLogout}>
       <div className="relative">
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl transition-all border ${
-          syncError ? 'bg-red-600 border-red-400 text-white' : 
-          isSyncing ? 'bg-blue-600 border-blue-400 text-white animate-pulse' : 
-          'bg-white border-slate-100 text-slate-400'
-        }`}>
+        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl transition-all border ${syncError ? 'bg-red-600 border-red-400 text-white' :
+          isSyncing ? 'bg-blue-600 border-blue-400 text-white animate-pulse' :
+            'bg-white border-slate-100 text-slate-400'
+          }`}>
           <i className={`fa-solid ${syncError ? 'fa-triangle-exclamation' : isSyncing ? 'fa-sync fa-spin' : 'fa-cloud-check'} text-sm`}></i>
           <div className="text-left">
             <p className="text-[10px] font-black uppercase leading-none">
@@ -184,13 +190,13 @@ const App: React.FC = () => {
 
         {currentView === 'dashboard' && <Dashboard stats={stats} clients={userClients} />}
         {currentView === 'clients' && (
-          <ClientManager 
+          <ClientManager
             clients={userClients} userPlan={currentUser.plan}
             onAddClient={handleAddClient}
             onUpdateClient={async (u) => {
-               const newList = allClients.map(c => c.id === u.id ? u : c);
-               setAllClients(newList);
-               await persistData(allUsers, newList);
+              const newList = allClients.map(c => c.id === u.id ? u : c);
+              setAllClients(newList);
+              await persistData(allUsers, newList);
             }}
             onDeleteClient={async (id) => {
               const newList = allClients.filter(c => c.id !== id);
@@ -208,8 +214,8 @@ const App: React.FC = () => {
         {currentView === 'reports' && <Reports clients={userClients} />}
         {currentView === 'upgrade' && <Upgrade />}
         {currentView === 'admin' && (
-          <AdminPanel 
-            allUsers={allUsers} allClients={allClients} 
+          <AdminPanel
+            allUsers={allUsers} allClients={allClients}
             onUpdateUser={async (id, d) => {
               const newList = allUsers.map(u => u.id === id ? { ...u, ...d } : u);
               setAllUsers(newList);
