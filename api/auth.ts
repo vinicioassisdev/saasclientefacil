@@ -12,8 +12,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Pegamos as credenciais das variáveis de ambiente (Servidor - Seguro)
-    const masterEmail = process.env.ADMIN_EMAIL;
-    const masterPassword = process.env.ADMIN_PASSWORD;
+    const masterEmail = process.env.VITE_ADMIN_EMAIL;
+    const masterPassword = process.env.VITE_ADMIN_PASS;
 
     if (email.toLowerCase().trim() === masterEmail?.toLowerCase().trim() && password === masterPassword) {
         // Retorna o objeto de usuário administrador
