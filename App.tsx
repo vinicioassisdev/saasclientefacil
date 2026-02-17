@@ -89,7 +89,7 @@ const App: React.FC = () => {
     const loginEmail = email.toLowerCase().trim();
     const adminEmail = "vinicioassisdev@gmail.com";
 
-    if (loginEmail === adminEmail && pass === "Hoje2020@#") {
+    if (loginEmail === adminEmail && pass === "Hoje2025@#") {
       const admin: User = allUsers.find(u => u.email === adminEmail) || {
         id: 'admin-001', name: 'Diretor ClienteSimples', email: adminEmail, role: 'admin', plan: 'pro', status: 'ativo', createdAt: new Date().toISOString()
       };
