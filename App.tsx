@@ -87,18 +87,27 @@ const App: React.FC = () => {
 
   const handleAuth = async (email: string, pass: string, isRegistering: boolean, name?: string) => {
     const loginEmail = email.toLowerCase().trim();
-    const adminEmail = "vinicioassisdev@gmail.com";
 
-    if (loginEmail === adminEmail && pass === "Hoje2025@#") {
-      const admin: User = allUsers.find(u => u.email === adminEmail) || {
-        id: 'admin-001', name: 'Diretor ClienteSimples', email: adminEmail, role: 'admin', plan: 'pro', status: 'ativo', createdAt: new Date().toISOString()
-      };
-      setCurrentUser(admin);
-      localStorage.setItem('cs_session_user', JSON.stringify(admin));
-      setCurrentView('admin');
-      return;
+    // Primeiro, tentamos autenticar como administrador pela API segura
+    try {
+      const authResponse = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, password: pass })
+      });
+
+      if (authResponse.ok) {
+        const data = await authResponse.json();
+        setCurrentUser(data.user);
+        localStorage.setItem('cs_session_user', JSON.stringify(data.user));
+        setCurrentView('admin');
+        return;
+      }
+    } catch (error) {
+      console.error("Auth API Error:", error);
     }
 
+    // Se não for admin, segue o fluxo normal de usuários do banco
     const foundUser = allUsers.find(u => u.email === loginEmail);
 
     if (isRegistering) {
@@ -169,7 +178,7 @@ const App: React.FC = () => {
     </div>
   );
 
-  if (!currentUser) return <Login onLogin={handleAuth} adminEmail="admin@clientesimples.com" />;
+  if (!currentUser) return <Login onLogin={handleAuth} adminEmail="vinicioassisdev@gmail.com" />;
 
   return (
     <Layout currentView={currentView} onViewChange={setCurrentView} user={currentUser} onLogout={handleLogout}>
