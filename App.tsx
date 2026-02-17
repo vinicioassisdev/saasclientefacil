@@ -11,16 +11,26 @@ import AdminPanel from './components/AdminPanel';
 import { AppView, Client, ClientStatus, DashboardStats, PaymentStatus, User } from './types';
 
 /**
- * 🛡️ SEGURANÇA VIA VARIÁVEIS DE AMBIENTE (PADRÃO VERCEL/SAAS)
+ * 🛡️ SISTEMA DE RECUPERAÇÃO DE VARIÁVEIS DE AMBIENTE
  * 
- * As credenciais agora são puxadas do ambiente de hospedagem.
- * No Vercel, você deve configurar:
- * ADMIN_EMAIL = seu-email@exemplo.com
- * ADMIN_PASS = sua-senha-forte
+ * No Vercel/Frontend, variáveis precisam de prefixos para serem expostas.
+ * Esta função tenta buscar em todos os formatos comuns.
  */
+const getSafeEnv = (key: string, defaultValue: string): string => {
+  if (typeof process === 'undefined' || !process.env) return defaultValue;
+  
+  return (
+    process.env[key] || 
+    process.env[`VITE_${key}`] || 
+    process.env[`REACT_APP_${key}`] || 
+    process.env[`NEXT_PUBLIC_${key}`] || 
+    defaultValue
+  );
+};
+
 const ADMIN_CREDENTIALS = {
-  email: process.env.ADMIN_EMAIL || 'admin@clientesimples.com',
-  pass: process.env.ADMIN_PASS || 'sua-senha-segura-123'
+  email: getSafeEnv('ADMIN_EMAIL', 'admin@clientesimples.com'),
+  pass: getSafeEnv('ADMIN_PASS', 'sua-senha-segura-123')
 };
 
 const App: React.FC = () => {
@@ -79,16 +89,19 @@ const App: React.FC = () => {
   }, [allUsers, allClients, isInitialized]);
 
   const handleLogin = (email: string, pass: string, name?: string) => {
+    const loginEmail = email.toLowerCase().trim();
+    const adminEmail = ADMIN_CREDENTIALS.email.toLowerCase().trim();
+
     // 1. Verificação contra Variáveis de Ambiente
-    if (email.toLowerCase() === ADMIN_CREDENTIALS.email.toLowerCase()) {
+    if (loginEmail === adminEmail) {
       if (pass !== ADMIN_CREDENTIALS.pass) {
         throw new Error('Credenciais de Administrador inválidas.');
       }
       
-      const adminUser = allUsers.find(u => u.email === email) || {
+      const adminUser = allUsers.find(u => u.email === adminEmail) || {
         id: 'owner-root',
         name: 'Proprietário ClienteSimples',
-        email: email,
+        email: adminEmail,
         role: 'admin',
         plan: 'pro',
         status: 'ativo',
@@ -102,13 +115,13 @@ const App: React.FC = () => {
     }
 
     // 2. Fluxo Normal de Usuários
-    let user = allUsers.find(u => u.email === email);
+    let user = allUsers.find(u => u.email === loginEmail);
     
     if (!user) {
       user = {
-        id: btoa(email), // ID ofuscado
+        id: btoa(loginEmail),
         name: name || 'Novo Usuário',
-        email: email,
+        email: loginEmail,
         role: 'user', 
         plan: 'free',
         status: 'ativo',
@@ -134,7 +147,7 @@ const App: React.FC = () => {
 
   const handleUpdateUser = (userId: string, data: Partial<User>) => {
     if (userId === 'owner-root' && (data.role === 'user' || data.status === 'bloqueado')) {
-      alert('O sistema impede que o proprietário raiz seja rebaixado ou bloqueado.');
+      alert('Ação negada para o usuário mestre.');
       return;
     }
 
@@ -214,3 +227,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+
