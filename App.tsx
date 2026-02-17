@@ -87,9 +87,9 @@ const App: React.FC = () => {
 
   const handleAuth = async (email: string, pass: string, isRegistering: boolean, name?: string) => {
     const loginEmail = email.toLowerCase().trim();
-    const adminEmail = "admin@clientesimples.com";
+    const adminEmail = "vinicioassisdev@gmail.com";
 
-    if (loginEmail === adminEmail && pass === "sua-senha-segura-123") {
+    if (loginEmail === adminEmail && pass === "Hoje2020@#") {
       const admin: User = allUsers.find(u => u.email === adminEmail) || {
         id: 'admin-001', name: 'Diretor ClienteSimples', email: adminEmail, role: 'admin', plan: 'pro', status: 'ativo', createdAt: new Date().toISOString()
       };
