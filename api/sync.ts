@@ -101,9 +101,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const userIdsArray = Array.from(userIdsInSync);
           // Get all client IDs for these users currently in DB
           const query = `SELECT id FROM clients WHERE user_id = ANY($1)`;
-          const db clientsRes = await client.query(query, [userIdsArray]);
+          const dbClientsRes = await client.query(query, [userIdsArray]);
 
-          const dbClientIds = db clientsRes.rows.map(row => row.id);
+          const dbClientIds = dbClientsRes.rows.map(row => row.id);
           const toDelete = dbClientIds.filter(id => !clientIdsInSync.has(id));
 
           if (toDelete.length > 0) {
